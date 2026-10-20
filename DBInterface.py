@@ -147,10 +147,9 @@ class DBInterface():
         else:
             return False
 
-"""
-# code to make sure functions don't error, can ignore
+# some test code leftover from creating the functions, can ignore
 if __name__ == "__main__":
-    import db_init # short script I made to add dummy data for testing. Not pushed to repo
+    import db_init # short script I made to reset the csv files and fill them with dummy data for testing
     db = DBInterface()
     print("---------------------------------------------")
     print(db.customer_df)
@@ -165,4 +164,3 @@ if __name__ == "__main__":
     print("---------------------------------------------")
     print(db.customer_df)
     print(db.rental_df)
-"""
