@@ -1,0 +1,3 @@
+customerID,first_name,last_name,email,address
+1,John,Smith,johnsmith@email.com,"123 Generic St, Anywhere, USA 12345"
+2,Jane,Doe,janedoe@company.org,"456 Some Lane, Somewhere, USA 98765"
