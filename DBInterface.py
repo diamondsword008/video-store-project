@@ -48,6 +48,10 @@ class DBInterface():
         else:
             return False
 
+    def get_all_current_rentals(self):
+        table = self.rental_df[self.rental_df["returned"] == False].values.tolist()
+        return table
+
     def get_rental_history(self, customerID: int):
         if customerID in self.customer_df["customerID"].values:
             return self.rental_df[(self.rental_df["customerID"] == customerID) & (self.rental_df["returned"] == True)].values.tolist()
@@ -169,4 +173,4 @@ if __name__ == "__main__":
     print("---------------------------------------------")
     print(db.get_rental_history(1))
     print("---------------------------------------------")
-    print(db.get_all_customers())
+    print(db.get_all_current_rentals())
