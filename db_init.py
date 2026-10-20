@@ -14,4 +14,4 @@ with open("RentalHistory.csv", "w") as r:
     r.write("rentalNo,videoID,customerID,rental_start_date,rental_end_date,returned\n")
     r.write('1,thelegomovie,1,"05/12/2016","05/26/2016",True\n')
     r.write('2,goodluckhavefundontdie,2,"10/04/2026","10/18/2016",False\n')
-    r.write('3,goodluckhavefundontdie,1,"10/04/2024","10/18/2014",True')
+    r.write('3,goodluckhavefundontdie,1,"10/04/2024","10/18/2014",True\n')
