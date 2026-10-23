@@ -15,11 +15,30 @@ class DBInterface():
         self.__enforce_col_datatypes()
 
     def __enforce_col_datatypes(self):
+        # videos
+        self.video_df["videoID"] = self.video_df["videoID"].astype("str")
+        self.video_df["name"] = self.video_df["name"].astype("str")
+        self.video_df["year"] = self.video_df["year"].astype("int64")
         self.video_df['rating'] = self.video_df['rating'].astype('category')
         self.video_df['rating'] = self.video_df['rating'].cat.set_categories(self.rating_categories, ordered=True)
+        self.video_df["genre"] = self.video_df["genre"].astype("str")
+        self.video_df["total_stock"] = self.video_df["total_stock"].astype("int64")
+        self.video_df["current_stock"] = self.video_df["current_stock"].astype("int64")
 
+        # customers
+        self.customer_df["customerID"] = self.customer_df["customerID"].astype("int64")
+        self.customer_df["first_name"] = self.customer_df["first_name"].astype("str")
+        self.customer_df["last_name"] = self.customer_df["last_name"].astype("str")
+        self.customer_df["email"] = self.customer_df["email"].astype("str")
+        self.customer_df["address"] = self.customer_df["address"].astype("str")
+
+        # rentalhistory
+        self.rental_df["rentalNo"] = self.rental_df["rentalNo"].astype("int64")
+        self.rental_df["videoID"] = self.rental_df["videoID"].astype("str")
+        self.rental_df["customerID"] = self.rental_df["customerID"].astype("int64")
         self.rental_df["rental_start_date"] = pd.to_datetime(self.rental_df["rental_start_date"], format="%m/%d/%Y").dt.date
         self.rental_df["rental_end_date"] = pd.to_datetime(self.rental_df["rental_end_date"], format="%m/%d/%Y").dt.date
+        self.rental_df["returned"] = self.rental_df["returned"].astype("bool")
 
     # Getters
     def get_video_info(self, videoID: str):
@@ -169,8 +188,8 @@ if __name__ == "__main__":
     import db_init # short script I made to reset the csv files and fill them with dummy data for testing
     db = DBInterface()
     print("---------------------------------------------")
-    print(db.customer_df)
+    print(db.customer_df.dtypes)
     print("---------------------------------------------")
-    print(db.get_rental_history(1))
+    print(db.video_df.dtypes)
     print("---------------------------------------------")
-    print(db.get_all_current_rentals())
+    print(db.rental_df.dtypes)
