@@ -1,6 +1,7 @@
 import os
 import re
 import tkinter as tk
+from tkinter import messagebox
 from datetime import datetime
 
 from DBInterface import DBInterface
@@ -43,6 +44,28 @@ def format_date(a_date):
     return a_date.strftime("%m/%d/%Y")
 
 
+def find_customer_by_email(email_text):
+    # Customers check out with their email, so look for it in the customer list
+    email_text = email_text.strip().lower()
+    for c in db.get_all_customers():
+        # c = [customerID, first_name, last_name, email, address]
+        if c[3].lower() == email_text:
+            return c
+    return False
+
+
+def find_video(text):
+    # Works with a Video ID or with the movie's name
+    text = text.strip()
+    video = db.get_video_info(make_video_id(text))
+    if video:
+        return video
+    for v in db.get_all_videos():
+        if v[1].lower() == text.lower():
+            return v
+    return False
+
+
 # ----------------------------------------------------------------------
 # Moving between pages
 # Every page is a Frame. show_page() hides all of them, then shows one.
@@ -81,6 +104,14 @@ def go_search():
     show_page(frm_search)
 
 
+def go_rentals():
+    ent_rentals_email.delete(0, tk.END)
+    lbl_rentals_customer["text"] = "Customer: "
+    lst_rentals.delete(0, tk.END)
+    lbl_rentals_status["text"] = ""
+    show_page(frm_rentals)
+
+
 # ======================================================================
 # PAGE 1: HOME
 # ======================================================================
@@ -114,6 +145,10 @@ btn_search = tk.Button(
     master=frm_home, text="Search movies",
     width=28, height=3, command=go_search
 )
+btn_rentals = tk.Button(
+    master=frm_home, text="Current rentals / return a movie",
+    width=28, height=3, command=go_rentals
+)
 
 lbl_welcome.grid(row=0, column=0, columnspan=2, pady=(80, 10))
 lbl_question.grid(row=1, column=0, columnspan=2, pady=(0, 40))
@@ -121,17 +156,18 @@ btn_checkout.grid(row=2, column=0, padx=10, pady=10, sticky="e")
 btn_customer.grid(row=2, column=1, padx=10, pady=10, sticky="w")
 btn_inhouse.grid(row=3, column=0, padx=10, pady=10, sticky="e")
 btn_search.grid(row=3, column=1, padx=10, pady=10, sticky="w")
+btn_rentals.grid(row=4, column=0, columnspan=2, pady=10)
 
 
 # ======================================================================
 # PAGE 2: CHECK OUT A MOVIE
 # ======================================================================
 def clear_checkout_form():
-    ent_customer_id.delete(0, tk.END)
+    ent_customer_email.delete(0, tk.END)
     ent_video_id.delete(0, tk.END)
     ent_end_date.delete(0, tk.END)
     lbl_customer_name["text"] = "Name: "
-    lbl_customer_email["text"] = "Email: "
+    lbl_customer_found_id["text"] = "Customer ID: "
     lbl_movie_title["text"] = "Title: "
     lbl_movie_details["text"] = "Rating / Genre: "
     lbl_movie_stock["text"] = "In stock: "
@@ -140,34 +176,28 @@ def clear_checkout_form():
 
 
 def lookup_customer():
-    customer_text = ent_customer_id.get().strip()
     lbl_customer_name["text"] = "Name: "
-    lbl_customer_email["text"] = "Email: "
+    lbl_customer_found_id["text"] = "Customer ID: "
 
-    if not customer_text.isdigit():
-        lbl_checkout_status["text"] = "Customer ID must be a number."
-        return
-
-    customer = db.get_customer_info(int(customer_text))
+    customer = find_customer_by_email(ent_customer_email.get())
     if not customer:
-        lbl_checkout_status["text"] = "No customer found with that ID."
+        lbl_checkout_status["text"] = "No customer found with that email."
         return
 
     # customer = [customerID, first_name, last_name, email, address]
     lbl_customer_name["text"] = f"Name: {customer[1]} {customer[2]}"
-    lbl_customer_email["text"] = f"Email: {customer[3]}"
+    lbl_customer_found_id["text"] = f"Customer ID: {customer[0]}"
     lbl_checkout_status["text"] = ""
 
 
 def lookup_movie():
-    video_id = make_video_id(ent_video_id.get())
     lbl_movie_title["text"] = "Title: "
     lbl_movie_details["text"] = "Rating / Genre: "
     lbl_movie_stock["text"] = "In stock: "
 
-    video = db.get_video_info(video_id)
+    video = find_video(ent_video_id.get())
     if not video:
-        lbl_checkout_status["text"] = "No movie found with that Video ID."
+        lbl_checkout_status["text"] = "No movie found with that Video ID or name."
         return
 
     # video = [videoID, name, year, rating, genre, total_stock, current_stock]
@@ -178,23 +208,19 @@ def lookup_movie():
 
 
 def confirm_checkout():
-    # 1. check the customer
-    customer_text = ent_customer_id.get().strip()
-    if not customer_text.isdigit():
-        lbl_checkout_status["text"] = "Customer ID must be a number."
-        return
-    customer_id = int(customer_text)
-    customer = db.get_customer_info(customer_id)
+    # 1. check the customer (they type their email)
+    customer = find_customer_by_email(ent_customer_email.get())
     if not customer:
-        lbl_checkout_status["text"] = "No customer found with that ID."
+        lbl_checkout_status["text"] = "No customer found with that email."
         return
+    customer_id = customer[0]
 
     # 2. check the movie
-    video_id = make_video_id(ent_video_id.get())
-    video = db.get_video_info(video_id)
+    video = find_video(ent_video_id.get())
     if not video:
-        lbl_checkout_status["text"] = "No movie found with that Video ID."
+        lbl_checkout_status["text"] = "No movie found with that Video ID or name."
         return
+    video_id = video[0]
     if int(video[6]) < 1:
         lbl_checkout_status["text"] = "Sorry, there are no copies of that movie in stock."
         return
@@ -250,27 +276,27 @@ frm_customer_box = tk.Frame(master=frm_checkout_body)
 lbl_customer_heading = tk.Label(
     master=frm_customer_box, text="Customer", font=FONT_HEADING
 )
-lbl_customer_id = tk.Label(master=frm_customer_box, text="Customer ID:")
-ent_customer_id = tk.Entry(master=frm_customer_box, width=15)
+lbl_customer_email_text = tk.Label(master=frm_customer_box, text="Customer email:")
+ent_customer_email = tk.Entry(master=frm_customer_box, width=28)
 btn_lookup_customer = tk.Button(
     master=frm_customer_box, text="Look up", command=lookup_customer
 )
 lbl_customer_name = tk.Label(master=frm_customer_box, text="Name: ")
-lbl_customer_email = tk.Label(master=frm_customer_box, text="Email: ")
+lbl_customer_found_id = tk.Label(master=frm_customer_box, text="Customer ID: ")
 
 lbl_customer_heading.grid(row=0, column=0, columnspan=3, sticky="w", pady=5)
-lbl_customer_id.grid(row=1, column=0, sticky="e", pady=5)
-ent_customer_id.grid(row=1, column=1, padx=5)
+lbl_customer_email_text.grid(row=1, column=0, sticky="e", pady=5)
+ent_customer_email.grid(row=1, column=1, padx=5)
 btn_lookup_customer.grid(row=1, column=2)
 lbl_customer_name.grid(row=2, column=0, columnspan=3, sticky="w", pady=5)
-lbl_customer_email.grid(row=3, column=0, columnspan=3, sticky="w")
+lbl_customer_found_id.grid(row=3, column=0, columnspan=3, sticky="w")
 
 # --- Movie section (right side) ---
 frm_movie_box = tk.Frame(master=frm_checkout_body)
 lbl_movie_heading = tk.Label(
     master=frm_movie_box, text="Movie", font=FONT_HEADING
 )
-lbl_video_id = tk.Label(master=frm_movie_box, text="Video ID:")
+lbl_video_id = tk.Label(master=frm_movie_box, text="Video ID or name:")
 ent_video_id = tk.Entry(master=frm_movie_box, width=25)
 btn_lookup_movie = tk.Button(
     master=frm_movie_box, text="Look up", command=lookup_movie
@@ -381,12 +407,14 @@ def save_customer():
         lbl_customer_form_status["text"] = "The email needs an @ in it."
         return
 
+    # Customers check out with their email, so no two customers can share one.
+    # (The backend does not check this, so we check here.)
+    for c in db.get_all_customers():
+        if c[3].lower() == values["email"].lower() and c[0] != editing_customer_id:
+            lbl_customer_form_status["text"] = "A customer with that email already exists."
+            return
+
     if editing_customer_id is None:
-        # The backend does not check for duplicates, so check the email here
-        for c in db.get_all_customers():
-            if c[3].lower() == values["email"].lower():
-                lbl_customer_form_status["text"] = "A customer with that email already exists."
-                return
         db.add_new_customer(
             values["first_name"], values["last_name"],
             values["email"], values["address"]
@@ -406,6 +434,30 @@ def save_customer():
     show_page(frm_customer)
 
 
+def delete_selected_customer():
+    selection = lst_customers.curselection()
+    if len(selection) == 0:
+        lbl_customer_list_status["text"] = "Click a customer in the list first."
+        return
+
+    customer = customer_rows[selection[0]]
+    name = f"{customer[1]} {customer[2]}"
+
+    # Deleting also deletes their rental history, so ask first
+    sure = messagebox.askyesno(
+        "Delete customer",
+        f"Delete {name} and all of their rental history?\nThis can't be undone."
+    )
+    if not sure:
+        return
+
+    if db.delete_customer(customer[0]):
+        refresh_customer_list()
+        lbl_customer_list_status["text"] = f"Deleted {name}."
+    else:
+        lbl_customer_list_status["text"] = f"Could not delete {name}. They may still have a movie checked out."
+
+
 def cancel_customer_form():
     lbl_customer_list_status["text"] = ""
     show_page(frm_customer)
@@ -423,7 +475,7 @@ lbl_customer_title.grid(row=0, column=0, pady=20)
 
 lbl_customer_hint = tk.Label(
     master=frm_customer,
-    text="Click a customer to select them, then press Edit Selected."
+    text="Click a customer to select them, then press Edit Selected or Delete Selected."
 )
 lbl_customer_hint.grid(row=1, column=0)
 
@@ -454,8 +506,13 @@ btn_new_customer = tk.Button(
     master=frm_customer_actions, text="New Customer", width=18, height=2,
     command=new_customer
 )
+btn_delete_customer = tk.Button(
+    master=frm_customer_actions, text="Delete Selected", width=18, height=2,
+    command=delete_selected_customer
+)
 btn_edit_customer.grid(row=0, column=0, padx=10)
 btn_new_customer.grid(row=0, column=1, padx=10)
+btn_delete_customer.grid(row=0, column=2, padx=10)
 frm_customer_actions.grid(row=3, column=0, pady=10)
 
 lbl_customer_list_status = tk.Label(master=frm_customer, text="")
@@ -749,6 +806,99 @@ def remove_selected_movie():
         lbl_inhouse_status["text"] = f'Could not remove "{video[1]}" because someone is still renting it.'
 
 
+editing_video_id = ""         # the videoID of the movie being edited
+movie_edit_keys = ["name", "year", "rating", "genre", "total_stock"]
+
+
+def edit_selected_movie():
+    selection = lst_inhouse.curselection()
+    if len(selection) == 0:
+        lbl_inhouse_status["text"] = "Click a movie in the list first."
+        return
+    open_movie_edit_form(inhouse_rows[selection[0]])
+
+
+def open_movie_edit_form(video):
+    global editing_video_id
+    # video = [videoID, name, year, rating, genre, total_stock, current_stock]
+    editing_video_id = video[0]
+    lbl_movie_edit_id["text"] = f"Video ID: {video[0]}"
+    # fill the boxes with what is saved now, so only the changes need typing
+    current_values = [video[1], video[2], video[3], video[4], video[5]]
+    for i in range(len(movie_edit_keys)):
+        ent_movie_edit[movie_edit_keys[i]].delete(0, tk.END)
+        ent_movie_edit[movie_edit_keys[i]].insert(0, current_values[i])
+    lbl_movie_edit_status["text"] = ""
+    show_page(frm_movie_edit)
+
+
+def save_movie_edit():
+    old = db.get_video_info(editing_video_id)
+    if not old:
+        lbl_movie_edit_status["text"] = "That movie could not be found."
+        return
+
+    name = ent_movie_edit["name"].get().strip()
+    year_text = ent_movie_edit["year"].get().strip()
+    rating = ent_movie_edit["rating"].get().strip().upper()
+    genre = ent_movie_edit["genre"].get().strip()
+    total_text = ent_movie_edit["total_stock"].get().strip()
+
+    # check everything first, so nothing is half-saved
+    if name == "" or genre == "" or rating == "":
+        lbl_movie_edit_status["text"] = "Please fill in every box."
+        return
+    if not year_text.isdigit() or not total_text.isdigit():
+        lbl_movie_edit_status["text"] = "Year and total stock must be numbers."
+        return
+    year = int(year_text)
+    new_total = int(total_text)
+    if year < 1888 or year > 2100:
+        lbl_movie_edit_status["text"] = "Please enter a real year."
+        return
+    if rating not in db.rating_categories:
+        lbl_movie_edit_status["text"] = "Rating must be one of: " + ", ".join(db.rating_categories)
+        return
+
+    # no other movie can have the same name
+    new_id = make_video_id(name)
+    if new_id == "":
+        lbl_movie_edit_status["text"] = "The name needs some letters or numbers."
+        return
+    for v in db.get_all_videos():
+        if v[0] != editing_video_id and (v[0] == new_id or v[1].lower() == name.lower()):
+            lbl_movie_edit_status["text"] = "Another movie already has that name."
+            return
+
+    # total stock can't go below the copies that are out right now
+    old_total = int(old[5])
+    old_current = int(old[6])
+    rented_out = old_total - old_current
+    if new_total < 1 or new_total < rented_out:
+        lbl_movie_edit_status["text"] = f"Total stock must be at least 1 and at least the {rented_out} copies rented out."
+        return
+
+    # now save only the things that changed
+    new_values = [name, year, rating, genre]
+    old_values = [old[1], old[2], old[3], old[4]]
+    for i in range(len(new_values)):
+        if new_values[i] != old_values[i]:
+            db.edit_video_info(editing_video_id, movie_edit_keys[i], new_values[i])
+    if new_total != old_total:
+        db.edit_video_info(editing_video_id, "total_stock", new_total)
+        # keep current_stock in step with the change in total stock
+        db.edit_video_info(editing_video_id, "current_stock", old_current + (new_total - old_total))
+
+    refresh_inhouse_list()
+    lbl_inhouse_status["text"] = f'Updated "{name}".'
+    show_page(frm_inhouse)
+
+
+def cancel_movie_edit():
+    lbl_inhouse_status["text"] = ""
+    show_page(frm_inhouse)
+
+
 frm_inhouse = tk.Frame(master=window)
 frm_inhouse.columnconfigure(0, weight=1)
 frm_inhouse.rowconfigure(3, weight=1)
@@ -833,10 +983,15 @@ btn_remove_movie = tk.Button(
     master=frm_stock_actions, text="Remove Selected Movie", width=22,
     command=remove_selected_movie
 )
+btn_edit_movie = tk.Button(
+    master=frm_stock_actions, text="Edit Selected Movie", width=22,
+    command=edit_selected_movie
+)
 lbl_add_stock.grid(row=0, column=0, sticky="e")
 ent_add_stock.grid(row=0, column=1, padx=5)
 btn_add_stock.grid(row=0, column=2, padx=5)
 btn_remove_movie.grid(row=0, column=3, padx=5)
+btn_edit_movie.grid(row=1, column=2, padx=5, pady=8)
 frm_stock_actions.grid(row=3, column=0, columnspan=2, pady=10)
 
 frm_add_box.grid(row=0, column=0, padx=30, pady=5, sticky="n")
@@ -849,6 +1004,179 @@ btn_inhouse_back = tk.Button(
     master=frm_inhouse, text="Back", width=10, command=go_home
 )
 btn_inhouse_back.grid(row=3, column=0, sticky="sw", padx=20, pady=20)
+
+
+# ======================================================================
+# PAGE 5b: EDIT MOVIE (opened from the Add/Remove Movies page)
+# ======================================================================
+frm_movie_edit = tk.Frame(master=window)
+frm_movie_edit.columnconfigure(0, weight=1)
+frm_movie_edit.rowconfigure(5, weight=1)
+
+lbl_movie_edit_title = tk.Label(
+    master=frm_movie_edit, text="Edit Movie", font=FONT_TITLE
+)
+lbl_movie_edit_title.grid(row=0, column=0, pady=20)
+
+lbl_movie_edit_id = tk.Label(master=frm_movie_edit, text="Video ID: ")
+lbl_movie_edit_id.grid(row=1, column=0, pady=5)
+
+frm_movie_edit_fields = tk.Frame(master=frm_movie_edit)
+movie_edit_labels = ["Name:", "Year:", "Rating:", "Genre:", "Total stock:"]
+ent_movie_edit = {}
+
+for i in range(len(movie_edit_keys)):
+    lbl_field = tk.Label(master=frm_movie_edit_fields, text=movie_edit_labels[i])
+    ent_field = tk.Entry(master=frm_movie_edit_fields, width=40)
+    lbl_field.grid(row=i, column=0, sticky="e", padx=5, pady=5)
+    ent_field.grid(row=i, column=1, padx=5, pady=5)
+    ent_movie_edit[movie_edit_keys[i]] = ent_field
+
+lbl_movie_edit_hint = tk.Label(
+    master=frm_movie_edit_fields, text="Ratings: NC-17, R, PG-13, PG or G",
+    font=("Helvetica", 8)
+)
+lbl_movie_edit_hint.grid(row=len(movie_edit_keys), column=1, sticky="w", padx=5)
+frm_movie_edit_fields.grid(row=2, column=0, pady=10)
+
+frm_movie_edit_actions = tk.Frame(master=frm_movie_edit)
+btn_save_movie = tk.Button(
+    master=frm_movie_edit_actions, text="Save", width=18, height=2,
+    command=save_movie_edit
+)
+btn_cancel_movie = tk.Button(
+    master=frm_movie_edit_actions, text="Cancel", width=18, height=2,
+    command=cancel_movie_edit
+)
+btn_save_movie.grid(row=0, column=0, padx=10)
+btn_cancel_movie.grid(row=0, column=1, padx=10)
+frm_movie_edit_actions.grid(row=3, column=0, pady=10)
+
+lbl_movie_edit_status = tk.Label(master=frm_movie_edit, text="", fg="red")
+lbl_movie_edit_status.grid(row=4, column=0)
+
+
+# ======================================================================
+# PAGE 7: CURRENT RENTALS / RETURN A MOVIE
+# ======================================================================
+rental_rows = []              # the rentals in the list, in the same order
+
+
+def show_rentals():
+    global rental_rows
+    rental_rows = []
+    lst_rentals.delete(0, tk.END)
+
+    customer = find_customer_by_email(ent_rentals_email.get())
+    if not customer:
+        lbl_rentals_customer["text"] = "Customer: "
+        lbl_rentals_status["text"] = "No customer found with that email."
+        return
+
+    lbl_rentals_customer["text"] = f"Customer: {customer[1]} {customer[2]} (ID {customer[0]})"
+
+    # rental = [rentalNo, videoID, customerID, start_date, end_date, returned]
+    rentals = db.get_current_rentals(customer[0])
+    if not rentals:
+        lbl_rentals_status["text"] = "This customer has no movies checked out."
+        return
+
+    for rental in rentals:
+        rental_rows.append(rental)
+        video = db.get_video_info(rental[1])
+        if video:
+            movie_name = video[1]
+        else:
+            movie_name = rental[1]
+        overdue = ""
+        if rental[4] < datetime.today().date():
+            overdue = "OVERDUE"
+        line = f"{rental[0]:<8}{movie_name:<34}{format_date(rental[3]):<13}{format_date(rental[4]):<13}{overdue}"
+        lst_rentals.insert(tk.END, line)
+    lbl_rentals_status["text"] = f"{len(rentals)} movie(s) checked out."
+
+
+def return_selected_rental():
+    selection = lst_rentals.curselection()
+    if len(selection) == 0:
+        lbl_rentals_status["text"] = "Click a rental in the list first."
+        return
+
+    rental = rental_rows[selection[0]]
+    result = db.return_rental(rental[0])
+    if result is False:
+        lbl_rentals_status["text"] = "That rental could not be returned."
+        return
+
+    # return_rental only changes the table in memory (it doesn't save the csv
+    # or put the copy back in stock), so we do those two things here.
+    db.rental_df.to_csv("RentalHistory.csv", index=False)
+    video = db.get_video_info(rental[1])
+    if video:
+        new_stock = min(int(video[6]) + 1, int(video[5]))
+        db.edit_video_info(rental[1], "current_stock", new_stock)
+
+    movie_name = rental[1]
+    if video:
+        movie_name = video[1]
+    show_rentals()
+    lbl_rentals_status["text"] = f'"{movie_name}" was returned.'
+
+
+frm_rentals = tk.Frame(master=window)
+frm_rentals.columnconfigure(0, weight=1)
+frm_rentals.rowconfigure(6, weight=1)
+
+lbl_rentals_title = tk.Label(
+    master=frm_rentals, text="Current Rentals", font=FONT_TITLE
+)
+lbl_rentals_title.grid(row=0, column=0, pady=20)
+
+frm_rentals_lookup = tk.Frame(master=frm_rentals)
+lbl_rentals_email_text = tk.Label(master=frm_rentals_lookup, text="Customer email:")
+ent_rentals_email = tk.Entry(master=frm_rentals_lookup, width=35)
+btn_rentals_lookup = tk.Button(
+    master=frm_rentals_lookup, text="Look up", command=show_rentals
+)
+lbl_rentals_email_text.grid(row=0, column=0, padx=5)
+ent_rentals_email.grid(row=0, column=1, padx=5)
+btn_rentals_lookup.grid(row=0, column=2, padx=5)
+frm_rentals_lookup.grid(row=1, column=0)
+
+lbl_rentals_customer = tk.Label(master=frm_rentals, text="Customer: ", font=FONT_HEADING)
+lbl_rentals_customer.grid(row=2, column=0, pady=10)
+
+frm_rentals_list = tk.Frame(master=frm_rentals)
+lbl_rentals_header = tk.Label(
+    master=frm_rentals_list,
+    text=f"{'Rental':<8}{'Movie':<34}{'Rented':<13}{'Due back':<13}",
+    font=FONT_LIST, anchor="w"
+)
+lst_rentals = tk.Listbox(
+    master=frm_rentals_list, width=85, height=8, font=FONT_LIST,
+    exportselection=False
+)
+scr_rentals = tk.Scrollbar(master=frm_rentals_list, command=lst_rentals.yview)
+lst_rentals["yscrollcommand"] = scr_rentals.set
+
+lbl_rentals_header.grid(row=0, column=0, sticky="w")
+lst_rentals.grid(row=1, column=0)
+scr_rentals.grid(row=1, column=1, sticky="ns")
+frm_rentals_list.grid(row=3, column=0)
+
+btn_return_rental = tk.Button(
+    master=frm_rentals, text="Mark Selected as Returned", width=28, height=2,
+    command=return_selected_rental
+)
+btn_return_rental.grid(row=4, column=0, pady=15)
+
+lbl_rentals_status = tk.Label(master=frm_rentals, text="")
+lbl_rentals_status.grid(row=5, column=0)
+
+btn_rentals_back = tk.Button(
+    master=frm_rentals, text="Back", width=10, command=go_home
+)
+btn_rentals_back.grid(row=6, column=0, sticky="sw", padx=20, pady=20)
 
 
 # ======================================================================
@@ -901,7 +1229,7 @@ frm_confirm_actions.grid(row=2, column=0, pady=20)
 # ----------------------------------------------------------------------
 all_pages = [
     frm_home, frm_checkout, frm_customer, frm_customer_form,
-    frm_search, frm_inhouse, frm_confirm
+    frm_search, frm_inhouse, frm_movie_edit, frm_rentals, frm_confirm
 ]
 show_page(frm_home)
 
