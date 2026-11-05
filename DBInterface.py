@@ -51,9 +51,9 @@ class DBInterface():
         table = self.video_df.values.tolist()
         return table
 
-    def get_customer_info(self, customerID: int):
-        if customerID in self.customer_df["customerID"].values:
-            return self.customer_df[self.customer_df["customerID"] == customerID].values.tolist()[0]
+    def get_customer_info(self, email: str):
+        if email in self.customer_df["email"].values:
+            return self.customer_df[self.customer_df["email"] == email].values.tolist()[0]
         else:
             return False
 
