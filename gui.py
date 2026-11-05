@@ -911,7 +911,7 @@ lbl_inhouse_title.grid(row=0, column=0, pady=20)
 frm_inhouse_body = tk.Frame(master=frm_inhouse)
 frm_inhouse_body.grid(row=1, column=0)
 
-# --- Left side: add a new movie ---
+# --- Left side: add a new movie ----
 frm_add_box = tk.Frame(master=frm_inhouse_body)
 lbl_add_heading = tk.Label(
     master=frm_add_box, text="Add a new movie", font=FONT_HEADING
